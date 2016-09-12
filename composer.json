@@ -1,0 +1,21 @@
+{
+    "name": "orware/sql-allowed-filter",
+    "description": "This is a simple library for providing a simple Yes/No answer on whether or not a provided SQL Query is Allowed to be Executed Based on a set of provided filters aiming to allow/disallow certain query types, tables, or fields from being used in a provided query.",
+    "require-dev": {
+
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Omar Ramos",
+            "email": "orware@gmail.com"
+        }
+    ],
+    "require": {
+    },
+    "autoload": {
+        "psr-4": {
+            "Orware\\Sql\\": "src/"
+        }
+    }
+}
