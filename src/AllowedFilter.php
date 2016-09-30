@@ -145,7 +145,137 @@ class AllowedFilter
 
 	public function areTablesAllowed()
 	{
-		return false;
+		$allowedTables = $this->filters->getAllowedTables();
+		if (empty($allowedTables)) {
+			return true;
+		}
+
+		$disallowedTables = $this->getDisallowedTables();
+
+		return empty($disallowedTables);
+	}
+
+	public function getDisallowedTables()
+	{
+		$tables = $this->getTablesFromQuery();
+		$allowedTables = array_keys($this->filters->getAllowedTables());
+
+		$disallowedTables = array_diff($tables, $allowedTables);
+
+		return $disallowedTables;
+	}
+
+	public function findEndingParentheses($start)
+	{
+		$query = $this->normalizedQuery;
+
+		do {
+			$endParenthesesOccurrence = strpos($query, ')', $start);
+			if ($endParenthesesOccurrence !== false) {
+
+				$startParenthesesOccurrence = strpos($query, '(', $start + 1);
+
+				if ($startParenthesesOccurrence < $endParenthesesOccurrence) {
+					$start = $endParenthesesOccurrence;
+				} elseif($startParenthesesOccurrence > $endParenthesesOccurrence) {
+					$start = $endParenthesesOccurrence;
+					break;
+				}
+			}
+		} while (strpos($query, ')', $start) !== false);
+
+		return $endParenthesesOccurrence;
+	}
+
+	public function getTablesFromQuery()
+	{
+		$queryType = $this->getQueryType();
+		$query = $this->normalizedQuery;
+		$potentialTables = array();
+
+		if ($queryType === 'SELECT') {
+			$start = 0;
+			do {
+				$fromOccurrence = strpos($query, 'FROM ', $start);
+				if ($fromOccurrence !== false) {
+					$fromOccurrence = $fromOccurrence + 4;
+					$whereOccurrence = strpos($query, 'WHERE ', $fromOccurrence);
+					if ($whereOccurrence === false) {
+						$whereOccurrence = strlen($query) - 1;
+					}
+
+					$selectOccurrence = strpos($query, 'SELECT ', $fromOccurrence);
+					if ($selectOccurrence !== false) {
+						if ($selectOccurrence < $whereOccurrence) {
+							$whereOccurrence = $selectOccurrence;
+						}
+
+						/*$subqueryStartOccurrence = strpos($query, '(', $fromOccurrence);
+						if ($subqueryStartOccurrence !== false && $subqueryStartOccurrence < $selectOccurrence) {
+							$findEndingParentheses = $this->findEndingParentheses($subqueryStartOccurrence);
+							$whereOccurrence = strpos($query, 'WHERE ', $findEndingParentheses);
+							if ($whereOccurrence === false) {
+								$whereOccurrence = strlen($query) - 1;
+							}
+						}*/
+					}
+
+					$tables = substr($query, $fromOccurrence, ($whereOccurrence - $fromOccurrence));
+
+					$tables = str_replace(array('(', ')'), '', trim($tables));
+
+					if (!empty($tables)) {
+						$tablesListWithPotentialAliases = explode(',', $tables);
+
+						foreach($tablesListWithPotentialAliases as $potentialTable) {
+							$parts = explode(' ', ltrim($potentialTable));
+							$potentialTables[] = trim($parts[0]);
+						}
+					}
+
+					$start = $whereOccurrence;
+				}
+			} while (strpos($query, 'FROM ', $start) !== false);
+
+			$start = 0;
+			do {
+				$fromOccurrence = strpos($query, 'JOIN ', $start);
+				if ($fromOccurrence !== false) {
+					$fromOccurrence = $fromOccurrence + 4;
+					$whereOccurrence = strpos($query, 'ON ', $fromOccurrence);
+					if ($whereOccurrence === false) {
+						$whereOccurrence = strlen($query) - 1;
+					}
+
+					$selectOccurrence = strpos($query, 'SELECT ', $fromOccurrence);
+					if ($selectOccurrence !== false) {
+						if ($selectOccurrence < $whereOccurrence) {
+							$whereOccurrence = $selectOccurrence;
+						}
+					}
+
+					$tables = substr($query, $fromOccurrence, ($whereOccurrence - $fromOccurrence));
+
+					$tables = str_replace(array('(', ')'), '', trim($tables));
+
+					if (!empty($tables)) {
+						$tablesListWithPotentialAliases = explode(',', $tables);
+
+						foreach($tablesListWithPotentialAliases as $potentialTable) {
+							$parts = explode(' ', ltrim($potentialTable));
+							$potentialTables[] = trim($parts[0]);
+						}
+					}
+
+					$start = $whereOccurrence;
+				}
+			} while (strpos($query, 'JOIN ', $start) !== false);
+		}
+
+		// @TODO Finish Other Query Types:
+
+		$potentialTables = array_unique($potentialTables);
+		return $potentialTables;
 	}
 
 	public function areFieldsAllowed()
